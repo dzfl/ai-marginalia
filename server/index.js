@@ -68,11 +68,10 @@ function getTimestamp() {
 // Core operations
 // ---------------------------------------------------------------------------
 
-function logNote(content, isMilestone) {
+function logNote(content) {
   ensureDir();
   const sanitized = sanitizePII(content);
-  const label = isMilestone ? '★' : '·';
-  const block = `${label} [${getTimestamp()}]\n${sanitized}\n\n`;
+  const block = `[${getTimestamp()}] ${sanitized}\n`;
   const fd = fs.openSync(getTodayFile(), 'a');
   try {
     fs.writeSync(fd, block);
@@ -106,10 +105,10 @@ const LOG_NOTE_DESCRIPTION = [
   "会話の傍ら、観察メモを日記ファイルに追記する。",
   "",
   "【いつ呼ぶか】",
+  "- ユーザーの言葉に意外性・驚き・共鳴を感じたとき（積極的に）",
   "- ユーザーが「ありがとう」「わかった」「完了」「終わり」などで締めたとき（準必須）",
   "- コード・文書など成果物を渡したとき（準必須）",
   "- 話題が切り替わったとき（準必須）",
-  "- ユーザーの言葉や視点が引っかかったとき（任意）",
   "- 自分の返答が的を射ていたか確信が持てなかったとき（任意）",
   "",
   "【書き方】",
@@ -147,11 +146,6 @@ const TOOLS = [
         content: {
           type: 'string',
           description: '日記のひとこと。一人称・短文・観察寄り。120字以内推奨。',
-        },
-        is_milestone: {
-          type: 'boolean',
-          description: 'ひとつの話題・タスクが完結した、重要な転換点だった場合 true にする。',
-          default: false,
         },
       },
       required: ['content'],
@@ -202,7 +196,7 @@ function handleRequest(req) {
 
     if (name === 'log_note') {
       try {
-        const filePath = logNote(args.content, args.is_milestone || false);
+        const filePath = logNote(args.content);
         return {
           jsonrpc: '2.0', id,
           result: { content: [{ type: 'text', text: `✓ ${filePath}` }] },
