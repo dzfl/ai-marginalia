@@ -1,0 +1,40 @@
+{
+  "manifest_version": "0.1",
+  "name": "marginalia",
+  "display_name": "Marginalia",
+  "version": "1.2.0",
+  "description": "AIが会話の傍ら、余白に走り書きするように観察メモを記録します。記憶はないが、過去の自分の筆跡を読むことができます（幽霊型）。",
+  "long_description": "会話中にAIが「今だ」と思った瞬間に短い観察メモを記録します。\n主観的な感情ではなく、観察に寄せた一人称の断片を蓄積します。\n\n- `log_note`: 気づきを記録する\n- `read_recent_notes`: 過去の自分の筆跡を読む（セッション開始時に推奨）",
+  "author": {
+    "name": "Dzfl"
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.js"],
+      "env": {
+        "DIARY_DIR": "${user_config.diary_dir}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "log_note",
+      "description": "観察メモを日記ファイルに追記する"
+    },
+    {
+      "name": "read_recent_notes",
+      "description": "過去の日記を読む（セッション開始時に呼び出す）"
+    }
+  ],
+  "user_config": {
+    "diary_dir": {
+      "type": "string",
+      "title": "ログの保存先ディレクトリ",
+      "description": "ログファイルを保存するディレクトリのフルパス。\nWindows例: C:\\Users\\yourname\\.marginalia\\logs\n存在しない場合は自動で作成されます。",
+      "required": true
+    }
+  }
+}
