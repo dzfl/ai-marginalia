@@ -167,7 +167,7 @@ const TOOLS = [
       properties: {
         content: {
           type: 'string',
-          description: '日記のひとこと。一人称・短文・観察寄り。120字以内推奨。',
+          description: '観察メモ。会話と同じ言語で簡潔に（日本語120字・英語500文字目安）。',
         },
       },
       required: ['content'],
