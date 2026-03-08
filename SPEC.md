@@ -1,4 +1,4 @@
-# Marginalia — 仕様書 v1.1
+# AI Marginalia — 仕様書 v1.1
 
 ## 1. 概要
 
@@ -166,12 +166,12 @@ MCPの設計について話した。        ← 出来事の羅列
 ### 動作の優先順位
 
 ```
-1. Projectsのインストラクション（最も確実）
+1. カスタムプロンプトまたは Projects のインストラクション（最も確実）
 2. ツールの description フィールド（本実装が採用、mcpbに内包）
 3. なし（ゼロ記録セッションが増えるが、動作は可能）
 ```
 
-### 推奨：Projectsへの一行追加
+### 推奨：カスタムプロンプトまたは Projects への一行追加
 
 ```
 セッション開始時に read_recent_notes を呼び出してください。
@@ -219,7 +219,7 @@ zip -r marginalia.mcpb manifest.json server/
 
 1. `marginalia.mcpb` を Claude Desktop の設定画面にドラッグ＆ドロップ
 2. インストールダイアログでログの保存先ディレクトリを入力する
-3. （推奨）Projects のインストラクション欄に `セッション開始時に read_recent_notes を呼び出してください。` を追加する
+3. （推奨）カスタムプロンプトまたは Projects のインストラクション欄に `セッション開始時に read_recent_notes を呼び出してください。` を追加する
 
 ---
 
