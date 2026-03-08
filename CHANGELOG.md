@@ -26,7 +26,7 @@
 ## [1.2.0] - 2026-03-08
 
 ### Changed
-- プロジェクト名を `ai-diary` から `Marginalia` に変更
+- プロジェクト名を `ai-diary` から `AI Marginalia` に変更
 
 ### Added
 - PII自動マスク処理を追加（メール・URL・IP・電話番号・ファイルパス・長い数字列）

@@ -10,7 +10,7 @@ const readline = require('readline');
 // ---------------------------------------------------------------------------
 
 function expandPath(p) {
-  if (!p) return path.join(os.homedir(), '.marginalia', 'logs');
+  if (!p) return path.join(os.homedir(), '.ai-marginalia', 'logs');
   if (p.startsWith('~')) return path.join(os.homedir(), p.slice(1));
   return p;
 }
@@ -202,7 +202,7 @@ function handleRequest(req) {
       result: {
         protocolVersion: '2024-11-05',
         capabilities: { tools: {} },
-        serverInfo: { name: 'marginalia', version: '1.2.0' },
+        serverInfo: { name: 'ai-marginalia', version: '1.2.0' },
       },
     };
   }

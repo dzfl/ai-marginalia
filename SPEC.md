@@ -230,7 +230,7 @@ MCPの性質上、ツール呼び出しはAIの裁量に委ねられるため、
 ### ファイル構成
 
 ```
-marginalia.mcpb  （ZIPアーカイブ）
+ai-marginalia.mcpb  （ZIPアーカイブ）
 ├── manifest.json
 └── server/
     └── index.js
@@ -239,7 +239,7 @@ marginalia.mcpb  （ZIPアーカイブ）
 ### パッケージング手順
 
 ```
-zip -r marginalia.mcpb manifest.json server/
+zip -r ai-marginalia.mcpb manifest.json server/
 # または Windows の場合、フォルダを圧縮して .zip → .mcpb にリネーム
 ```
 
@@ -253,7 +253,7 @@ zip -r marginalia.mcpb manifest.json server/
 
 ## 13. インストール手順
 
-1. `marginalia.mcpb` を Claude Desktop の設定画面にドラッグ＆ドロップ
+1. `ai-marginalia.mcpb` を Claude Desktop の設定画面にドラッグ＆ドロップ
 2. インストールダイアログでログの保存先ディレクトリを入力する
 3. （推奨）カスタムプロンプトまたは Projects のインストラクション欄に `セッション開始時に read_recent_notes を呼び出してください。` を追加する
 

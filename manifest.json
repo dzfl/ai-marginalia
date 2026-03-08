@@ -33,7 +33,7 @@
     "diary_dir": {
       "type": "string",
       "title": "ログの保存先ディレクトリ",
-      "description": "ログファイルを保存するディレクトリのフルパス。\nWindows例: C:\\Users\\yourname\\.marginalia\\logs\n存在しない場合は自動で作成されます。",
+      "description": "ログファイルを保存するディレクトリのフルパス。\nWindows例: C:\\Users\\yourname\\.ai-marginalia\\logs\n存在しない場合は自動で作成されます。",
       "required": true
     }
   }
