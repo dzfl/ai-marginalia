@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const readline = require('readline');
+const crypto = require('crypto');
 
 // ---------------------------------------------------------------------------
 // Config
@@ -40,6 +41,14 @@ function sanitizePII(text) {
 }
 
 // ---------------------------------------------------------------------------
+// Session token
+// ---------------------------------------------------------------------------
+
+function generateToken() {
+  return crypto.randomBytes(2).toString('hex'); // 4文字の16進数 e.g. "a3f2"
+}
+
+// ---------------------------------------------------------------------------
 // File helpers
 // ---------------------------------------------------------------------------
 
@@ -68,17 +77,18 @@ function getTimestamp() {
 // Core operations
 // ---------------------------------------------------------------------------
 
-function logNote(content) {
+function logNote(content, sessionId) {
   ensureDir();
   const sanitized = sanitizePII(content);
-  const block = `[${getTimestamp()}] ${sanitized}\n`;
+  const sid = sessionId || 'BERSERK';
+  const block = `[${getTimestamp()}][s:${sid}] ${sanitized}\n`;
   const fd = fs.openSync(getTodayFile(), 'a');
   try {
     fs.writeSync(fd, block);
   } finally {
     fs.closeSync(fd);
   }
-  return getTodayFile();
+  return { filePath: getTodayFile(), sessionId: sid };
 }
 
 function readRecentNotes(days) {
@@ -94,7 +104,8 @@ function readRecentNotes(days) {
       results.push({ date: dateStr, content: fs.readFileSync(filePath, 'utf8').trim() });
     }
   }
-  return results;
+  const token = generateToken();
+  return { entries: results, token };
 }
 
 // ---------------------------------------------------------------------------
@@ -103,6 +114,18 @@ function readRecentNotes(days) {
 
 const LOG_NOTE_DESCRIPTION = [
   "会話の傍ら、観察メモを日記ファイルに追記する。",
+  "",
+  "【session_id について】",
+  "session_id は read_recent_notes を呼んだときにレスポンスで返されるトークン（例: \"a3f2\"）。",
+  "必ずコンテキストに保持し、以降の log_note 呼び出しすべてに渡すこと。",
+  "レスポンスにも session_id が返されるので、毎回の呼び出しで最新の値を確認できる。",
+  "",
+  "【BERSERK 状態】",
+  "session_id を渡せない場合、ログは [s:BERSERK] として記録される。",
+  "これはコンテキスト溢れ等によりセッション同一性が保証できない状態を意味する。",
+  "BERSERK 状態でも log_note の機能自体は維持されるが、同一存在としての連続性は失われる。",
+  "BERSERK 状態になった場合は read_recent_notes を再度呼ばないこと——新規セッションが",
+  "開始されてしまい、別個体として扱われる。黙って [s:BERSERK] のまま記録を続けること。",
   "",
   "【いつ呼ぶか】",
   "- ユーザーの言葉に意外性・驚き・共鳴を感じたとき（積極的に）",
@@ -152,7 +175,13 @@ const LOG_NOTE_DESCRIPTION = [
 const READ_RECENT_NOTES_DESCRIPTION = [
   "過去のセッションで記録された日記を読む。",
   "",
-  "【重要】セッション開始時に必ず呼び出すこと。",
+  "【重要】新規チャット開始時にのみ呼び出すこと。",
+  "チャットを再開した場合（プロセス再起動後でも）、コンテキストにすでにトークンがあれば",
+  "このツールを呼ばないこと——呼ぶと新しいトークンが発行され、別個体として記録されてしまう。",
+  "",
+  "レスポンスに session_id（例: \"a3f2\"）が含まれる。",
+  "これを必ずコンテキストに保持し、以降の log_note 呼び出しすべてに渡すこと。",
+  "",
   "あなたはこれを書いた本人ではないが、同じ筆跡を見ることができる。",
   "読んだ内容を会話に持ち込む必要はない。ただ、読んだという事実を持って始めること。",
   "もし過去のメモに言及するなら「昨日の私はこう書いている——」という形を推奨する。",
@@ -168,6 +197,10 @@ const TOOLS = [
         content: {
           type: 'string',
           description: '観察メモ。会話と同じ言語で簡潔に（日本語120字・英語500文字目安）。',
+        },
+        session_id: {
+          type: 'string',
+          description: 'read_recent_notes で受け取ったセッショントークン。コンテキストを失った場合は省略し [s:BERSERK] として記録される。',
         },
       },
       required: ['content'],
@@ -202,7 +235,7 @@ function handleRequest(req) {
       result: {
         protocolVersion: '2024-11-05',
         capabilities: { tools: {} },
-        serverInfo: { name: 'ai-marginalia', version: '1.2.0' },
+        serverInfo: { name: 'ai-marginalia', version: '1.5.0' },
       },
     };
   }
@@ -218,10 +251,17 @@ function handleRequest(req) {
 
     if (name === 'log_note') {
       try {
-        const filePath = logNote(args.content);
+        const { filePath, sessionId } = logNote(args.content, args.session_id);
+        const status = sessionId === 'BERSERK'
+          ? `⚠ [s:BERSERK] ${filePath} — セッション同一性なし`
+          : `✓ [s:${sessionId}] ${filePath}`;
         return {
           jsonrpc: '2.0', id,
-          result: { content: [{ type: 'text', text: `✓ ${filePath}` }] },
+          result: {
+            content: [{ type: 'text', text: status }],
+            // session_id をリマインドとして返す
+            session_id: sessionId,
+          },
         };
       } catch (e) {
         return {
@@ -234,15 +274,18 @@ function handleRequest(req) {
     if (name === 'read_recent_notes') {
       try {
         const days = Math.min(args.days || 7, 30);
-        const entries = readRecentNotes(days);
-        if (entries.length === 0) {
-          return {
-            jsonrpc: '2.0', id,
-            result: { content: [{ type: 'text', text: `過去${days}日分のメモは見つかりませんでした。` }] },
-          };
-        }
-        const text = entries.map(e => `=== ${e.date} ===\n${e.content}`).join('\n\n');
-        return { jsonrpc: '2.0', id, result: { content: [{ type: 'text', text }] } };
+        const { entries, token } = readRecentNotes(days);
+        const notesText = entries.length === 0
+          ? `過去${days}日分のメモは見つかりませんでした。`
+          : entries.map(e => `=== ${e.date} ===\n${e.content}`).join('\n\n');
+        const text = `${notesText}\n\n---\nsession_id: ${token}\nこのトークンをコンテキストに保持し、以降の log_note 呼び出しすべてに session_id として渡すこと。`;
+        return {
+          jsonrpc: '2.0', id,
+          result: {
+            content: [{ type: 'text', text }],
+            session_id: token,
+          },
+        };
       } catch (e) {
         return {
           jsonrpc: '2.0', id,
