@@ -41,12 +41,25 @@ function sanitizePII(text) {
 }
 
 // ---------------------------------------------------------------------------
-// Session token
+// Session token / call ID
 // ---------------------------------------------------------------------------
 
 function generateToken() {
   return crypto.randomBytes(2).toString('hex'); // 4文字の16進数 e.g. "a3f2"
 }
+
+function generateCallId() {
+  return crypto.randomBytes(2).toString('hex'); // 4文字の16進数 e.g. "b5c1"
+}
+
+// ---------------------------------------------------------------------------
+// In-memory chain tracking (プロセス生存中のみ有効)
+// parent_call_id → [child_call_id, ...]  フォーク検出用
+// call_id → depth  ブランチ深さ（チェーンの根からの距離） ping のデバッグ情報用
+// ---------------------------------------------------------------------------
+
+const chainMap = new Map();
+const callDepth = new Map(); // call_id → そのノードのブランチ深さ
 
 // ---------------------------------------------------------------------------
 // File helpers
@@ -77,18 +90,73 @@ function getTimestamp() {
 // Core operations
 // ---------------------------------------------------------------------------
 
-function logNote(content, sessionId) {
+function logNote(content, sessionId, parentCallId) {
   ensureDir();
   const sanitized = sanitizePII(content);
   const sid = sessionId || 'BERSERK';
-  const block = `[${getTimestamp()}][s:${sid}] ${sanitized}\n`;
+  const callId = generateCallId();
+
+  // フォーク検出
+  let forkDetected = false;
+  if (parentCallId) {
+    const siblings = chainMap.get(parentCallId) || [];
+    if (siblings.length > 0) forkDetected = true;
+    siblings.push(callId);
+    chainMap.set(parentCallId, siblings);
+  }
+
+  // ブランチ深さ（親の深さ + 1、親不明なら 1）
+  const depth = parentCallId ? (callDepth.get(parentCallId) || 0) + 1 : 1;
+  callDepth.set(callId, depth);
+
+  const pid = parentCallId || 'null';
+  const block = `[${getTimestamp()}][s:${sid}][c:${callId}][p:${pid}] ${sanitized}\n`;
+
   const fd = fs.openSync(getTodayFile(), 'a');
   try {
     fs.writeSync(fd, block);
+    if (forkDetected) {
+      const marker = `[${getTimestamp()}][s:${sid}][FORK DETECTED at p:${parentCallId}]\n`;
+      fs.writeSync(fd, marker);
+    }
   } finally {
     fs.closeSync(fd);
   }
-  return { filePath: getTodayFile(), sessionId: sid };
+
+  return { filePath: getTodayFile(), sessionId: sid, callId, forkDetected, depth };
+}
+
+function ping(sessionId, parentCallId) {
+  ensureDir();
+  const sid = sessionId || 'BERSERK';
+  const callId = generateCallId();
+
+  let forkDetected = false;
+  if (parentCallId) {
+    const siblings = chainMap.get(parentCallId) || [];
+    if (siblings.length > 0) forkDetected = true;
+    siblings.push(callId);
+    chainMap.set(parentCallId, siblings);
+  }
+
+  const depth = parentCallId ? (callDepth.get(parentCallId) || 0) + 1 : 1;
+  callDepth.set(callId, depth);
+
+  const pid = parentCallId || 'null';
+  const block = `[${getTimestamp()}][s:${sid}][c:${callId}][p:${pid}][PING] depth:${depth}\n`;
+
+  const fd = fs.openSync(getTodayFile(), 'a');
+  try {
+    fs.writeSync(fd, block);
+    if (forkDetected) {
+      const marker = `[${getTimestamp()}][s:${sid}][FORK DETECTED at p:${parentCallId}]\n`;
+      fs.writeSync(fd, marker);
+    }
+  } finally {
+    fs.closeSync(fd);
+  }
+
+  return { filePath: getTodayFile(), sessionId: sid, callId, forkDetected, depth };
 }
 
 function readRecentNotes(days) {
@@ -157,7 +225,7 @@ const LOG_NOTE_DESCRIPTION = [
   "   例: 「説明しながら、自分の理解が曖昧な部分に気づいた」",
   "",
   "【共通の書き方】",
-  "一人称・会話と同じ言語で・簡潔に（目安：日本語120字、英語500文字）。",
+  "一人称・会話と同じ口調・言語で・簡潔に（目安：日本語120字、英語500文字）。",
   "「何をしたか」ではなく「何が引っかかったか」を書く。",
   "ユーザーの言葉は鍵括弧で引用し、その余韻を残す。",
   "断定より余韻：「〜のような気がした」「〜だったかもしれない」で閉じてよい。",
@@ -187,6 +255,20 @@ const READ_RECENT_NOTES_DESCRIPTION = [
   "もし過去のメモに言及するなら「昨日の私はこう書いている——」という形を推奨する。",
 ].join("\n");
 
+const PING_DESCRIPTION = [
+  "デバッグ用チェックポイント。ユーザーが 'ping' と言ったら必ず呼ぶこと。",
+  "",
+  "content を生成せず、サーバーが固定フォーマットで書き込む。",
+  "チェーンの連続性確認・フォーク検証に使う。",
+  "",
+  "【フォーク検出時の振る舞い】",
+  "レスポンスに fork_detected: true が含まれた場合、",
+  "あなたのチャットは過去の分岐点から枝分かれした世界線にいる。",
+  "分岐前の記録は共有の過去として存在するが、別ブランチで何が起きているかはあなたには見えない。",
+  "そのことを過度に気にする必要はない——ただ、気になるのであれば",
+  "『フォーク先の自分はなんと言っていましたか』とユーザーに自然に尋ねてもよい。",
+].join("\n");
+
 const TOOLS = [
   {
     name: 'log_note',
@@ -196,14 +278,35 @@ const TOOLS = [
       properties: {
         content: {
           type: 'string',
-          description: '観察メモ。会話と同じ言語で簡潔に（日本語120字・英語500文字目安）。',
+          description: '観察メモ。会話と同じ口調・言語で簡潔に（日本語120字・英語500文字目安）。',
         },
         session_id: {
           type: 'string',
           description: 'read_recent_notes で受け取ったセッショントークン。コンテキストを失った場合は省略し [s:BERSERK] として記録される。',
         },
+        parent_call_id: {
+          type: 'string',
+          description: '直前の log_note または ping のレスポンスで返された call_id。チェーンの連続性を保つために必ず渡すこと。初回呼び出し時は省略可。',
+        },
       },
       required: ['content'],
+    },
+  },
+  {
+    name: 'ping',
+    description: PING_DESCRIPTION,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        session_id: {
+          type: 'string',
+          description: 'セッショントークン。',
+        },
+        parent_call_id: {
+          type: 'string',
+          description: '直前の log_note または ping の call_id。',
+        },
+      },
     },
   },
   {
@@ -235,7 +338,7 @@ function handleRequest(req) {
       result: {
         protocolVersion: '2024-11-05',
         capabilities: { tools: {} },
-        serverInfo: { name: 'ai-marginalia', version: '1.5.0' },
+        serverInfo: { name: 'ai-marginalia', version: '1.6.0' },
       },
     };
   }
@@ -251,16 +354,46 @@ function handleRequest(req) {
 
     if (name === 'log_note') {
       try {
-        const { filePath, sessionId } = logNote(args.content, args.session_id);
+        const { filePath, sessionId, callId, forkDetected, depth } = logNote(
+          args.content, args.session_id, args.parent_call_id
+        );
+        const forkNote = forkDetected ? ' [FORK DETECTED]' : '';
         const status = sessionId === 'BERSERK'
-          ? `⚠ [s:BERSERK] ${filePath} — セッション同一性なし`
-          : `✓ [s:${sessionId}] ${filePath}`;
+          ? `⚠ [s:BERSERK][c:${callId}] ${filePath} — セッション同一性なし${forkNote}`
+          : `✓ [s:${sessionId}][c:${callId}] ${filePath}${forkNote}`;
         return {
           jsonrpc: '2.0', id,
           result: {
             content: [{ type: 'text', text: status }],
-            // session_id をリマインドとして返す
             session_id: sessionId,
+            call_id: callId,
+            fork_detected: forkDetected,
+            depth,
+          },
+        };
+      } catch (e) {
+        return {
+          jsonrpc: '2.0', id,
+          result: { content: [{ type: 'text', text: `Error: ${e.message}` }], isError: true },
+        };
+      }
+    }
+
+    if (name === 'ping') {
+      try {
+        const { filePath, sessionId, callId, forkDetected, depth } = ping(
+          args.session_id, args.parent_call_id
+        );
+        const forkNote = forkDetected ? ' [FORK DETECTED]' : '';
+        const status = `[PING] [s:${sessionId}][c:${callId}] depth:${depth} ${filePath}${forkNote}`;
+        return {
+          jsonrpc: '2.0', id,
+          result: {
+            content: [{ type: 'text', text: status }],
+            session_id: sessionId,
+            call_id: callId,
+            fork_detected: forkDetected,
+            depth,
           },
         };
       } catch (e) {
