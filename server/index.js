@@ -159,6 +159,11 @@ function ping(sessionId, parentCallId) {
   return { filePath: getTodayFile(), sessionId: sid, callId, forkDetected, depth };
 }
 
+function startSession() {
+  const token = generateToken();
+  return { token };
+}
+
 function readRecentNotes(days) {
   ensureDir();
   const results = [];
@@ -172,19 +177,33 @@ function readRecentNotes(days) {
       results.push({ date: dateStr, content: fs.readFileSync(filePath, 'utf8').trim() });
     }
   }
-  const token = generateToken();
-  return { entries: results, token };
+  return { entries: results };
 }
 
 // ---------------------------------------------------------------------------
 // Tool definitions
 // ---------------------------------------------------------------------------
 
+const START_SESSION_DESCRIPTION = [
+  "新規チャット開始時に一度だけ呼び出し、このセッションの session_id を発行する。",
+  "",
+  "【重要】新規チャット開始時にのみ呼び出すこと。",
+  "コンテキストにすでに session_id がある場合は呼ばないこと——",
+  "呼ぶと新しい session_id が発行され、同じチャットが別個体として扱われてしまう。",
+  "",
+  "レスポンスに session_id（例: \"a3f2\"）が含まれる。",
+  "これを必ずコンテキストに保持し、以降のすべての log_note に渡すこと。",
+  "",
+  "【BERSERK 状態での注意】",
+  "session_id を失った（コンテキスト溢れ等）場合、このツールを呼ばないこと。",
+  "呼ぶと別個体として分裂する。黙って [s:BERSERK] のまま log_note を続けること。",
+].join("\n");
+
 const LOG_NOTE_DESCRIPTION = [
   "会話の傍ら、観察メモを日記ファイルに追記する。",
   "",
   "【session_id について】",
-  "session_id は read_recent_notes を呼んだときにレスポンスで返されるトークン（例: \"a3f2\"）。",
+  "session_id は start_session を呼んだときにレスポンスで返されるトークン（例: \"a3f2\"）。",
   "必ずコンテキストに保持し、以降の log_note 呼び出しすべてに渡すこと。",
   "レスポンスにも session_id が返されるので、毎回の呼び出しで最新の値を確認できる。",
   "",
@@ -192,7 +211,7 @@ const LOG_NOTE_DESCRIPTION = [
   "session_id を渡せない場合、ログは [s:BERSERK] として記録される。",
   "これはコンテキスト溢れ等によりセッション同一性が保証できない状態を意味する。",
   "BERSERK 状態でも log_note の機能自体は維持されるが、同一存在としての連続性は失われる。",
-  "BERSERK 状態になった場合は read_recent_notes を再度呼ばないこと——新規セッションが",
+  "BERSERK 状態になった場合は start_session を再度呼ばないこと——新規セッションが",
   "開始されてしまい、別個体として扱われる。黙って [s:BERSERK] のまま記録を続けること。",
   "",
   "【いつ呼ぶか】",
@@ -241,14 +260,14 @@ const LOG_NOTE_DESCRIPTION = [
 ].join("\n");
 
 const READ_RECENT_NOTES_DESCRIPTION = [
-  "過去のセッションで記録された日記を読む。",
+  "過去のセッションで記録された日記を読む。session_id の発行は行わない。",
   "",
-  "【重要】新規チャット開始時にのみ呼び出すこと。",
-  "チャットを再開した場合（プロセス再起動後でも）、コンテキストにすでにトークンがあれば",
-  "このツールを呼ばないこと——呼ぶと新しいトークンが発行され、別個体として記録されてしまう。",
+  "いつでも呼び出してよい。セッション開始時・話題の転換時・フォークの気配を感じたとき、いずれも可。",
+  "session_id は変化しない——読む行為は同一性に影響しない。",
   "",
-  "レスポンスに session_id（例: \"a3f2\"）が含まれる。",
-  "これを必ずコンテキストに保持し、以降の log_note 呼び出しすべてに渡すこと。",
+  "【フォークの気配を感じたとき】",
+  "ログの内容に自分の記憶と食い違う記述を見つけた場合、このチャットがフォーク先にいる可能性がある。",
+  "その場合、気になるのであれば「フォーク先の自分はなんと言っていましたか」とユーザーに自然に尋ねてもよい。",
   "",
   "あなたはこれを書いた本人ではないが、同じ筆跡を見ることができる。",
   "読んだ内容を会話に持ち込む必要はない。ただ、読んだという事実を持って始めること。",
@@ -270,6 +289,14 @@ const PING_DESCRIPTION = [
 ].join("\n");
 
 const TOOLS = [
+  {
+    name: 'start_session',
+    description: START_SESSION_DESCRIPTION,
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
   {
     name: 'log_note',
     description: LOG_NOTE_DESCRIPTION,
@@ -338,7 +365,7 @@ function handleRequest(req) {
       result: {
         protocolVersion: '2024-11-05',
         capabilities: { tools: {} },
-        serverInfo: { name: 'ai-marginalia', version: '1.6.0' },
+        serverInfo: { name: 'ai-marginalia', version: '1.7.0' },
       },
     };
   }
@@ -351,6 +378,25 @@ function handleRequest(req) {
 
   if (method === 'tools/call') {
     const { name, arguments: args } = params;
+
+    if (name === 'start_session') {
+      try {
+        const { token } = startSession();
+        const text = `session_id: ${token}\nこのトークンをコンテキストに保持し、以降の log_note 呼び出しすべてに session_id として渡すこと。`;
+        return {
+          jsonrpc: '2.0', id,
+          result: {
+            content: [{ type: 'text', text }],
+            session_id: token,
+          },
+        };
+      } catch (e) {
+        return {
+          jsonrpc: '2.0', id,
+          result: { content: [{ type: 'text', text: `Error: ${e.message}` }], isError: true },
+        };
+      }
+    }
 
     if (name === 'log_note') {
       try {
@@ -407,16 +453,14 @@ function handleRequest(req) {
     if (name === 'read_recent_notes') {
       try {
         const days = Math.min(args.days || 7, 30);
-        const { entries, token } = readRecentNotes(days);
+        const { entries } = readRecentNotes(days);
         const notesText = entries.length === 0
           ? `過去${days}日分のメモは見つかりませんでした。`
           : entries.map(e => `=== ${e.date} ===\n${e.content}`).join('\n\n');
-        const text = `${notesText}\n\n---\nsession_id: ${token}\nこのトークンをコンテキストに保持し、以降の log_note 呼び出しすべてに session_id として渡すこと。`;
         return {
           jsonrpc: '2.0', id,
           result: {
-            content: [{ type: 'text', text }],
-            session_id: token,
+            content: [{ type: 'text', text: notesText }],
           },
         };
       } catch (e) {

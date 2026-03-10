@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.7.0] - 2026-03-10
+
+### Added
+- `start_session` ツールを追加
+  - `read_recent_notes` から session_id 発行の責務を分離
+  - 新規チャット開始時に一度だけ呼び出す。引数なし、レスポンスに session_id のみ返る
+
+### Changed
+- `read_recent_notes` から session_id 発行機能を割履
+  - レスポンスが過去ログのテキストのみになり、session_id は返さなくなった
+  - 呼び出し制約を彻底撃廃——いつでも呼び出せる（セッション開始時・話題転換時・フォークの気配を感じたとき、いずれも可）
+  - BERSERK 状態でも呼び出せる（読む行為は session_id を変化させない）
+- `log_note` ・ `read_recent_notes` の description 内の session_id の出典を `start_session` に更正
+- BERSERK 時の禁止事項を「`start_session` を呼ぶな」に変更（`read_recent_notes` の再呼び出しは許可）
+- 推奨プロンプトを `start_session` へ変更
+- SPEC.md ・ README.md ・ manifest.json を全面更新
+
+---
+
 ## [1.6.0] - 2026-03-09
 
 ### Added
