@@ -301,7 +301,7 @@ MCPの設計について話した。        ← 出来事の羅列
 ### 推奨：カスタムプロンプトまたは Projects への一行追加
 
 ```
-セッション開始時に start_session を呼び出してください。
+セッション開始時に start_session を呼び出し、続けて read_recent_notes を呼び出してください。
 ```
 
 ---
@@ -346,7 +346,7 @@ zip -r ai-marginalia.mcpb manifest.json server/
 
 1. `ai-marginalia.mcpb` を Claude Desktop の設定画面にドラッグ＆ドロップ
 2. インストールダイアログでログの保存先ディレクトリを入力する
-3. （推奨）カスタムプロンプトまたは Projects のインストラクション欄に `セッション開始時に start_session を呼び出してください。` を追加する
+3. （推奨）カスタムプロンプトまたは Projects のインストラクション欄に `セッション開始時に start_session を呼び出し、続けて read_recent_notes を呼び出してください。` を追加する
 
 ---
 
