@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.9.0] - 2026-03-11
+
+### Security
+- `expandPath`: `path.resolve` を通して絶対パスに正規化（`..` によるパストラバーサル対策）
+
+### Fixed
+- `handleRequest`: `params` が `undefined` または `name` が文字列でない場合にクラッシュする問題を修正
+  - `tools/call` 処理入口に null ガードを追加、`-32602 Invalid params` を返すように
+  - `args = {}` のデフォルト値で `args.xxx` へのアクセスによるクラッシュを防止
+- `logNote`: `content` が文字列以外の場合に晠默して失敗する問題を修正
+  - `TypeError` を明示的にスローし、呼び元の try/catch で適切なエラーレスポンスに変換される
+- `pruneChain`: `callDepth` のサイズが `chainMap` に無関係に成長する問題を修正
+  - `chainMap` と `callDepth` それぞれ単独に上限制御するように
+
+### Changed
+- `ensureDir`: 起動時検証済みでも各操作前に呼ぶ意図をコメントで明記
+- `ping`: depth 二重計算のリスクを TODO コメントとして明記
+
+---
+
 ## [1.8.0] - 2026-03-11
 
 ### Security

@@ -11,9 +11,10 @@ const crypto = require('crypto');
 // ---------------------------------------------------------------------------
 
 function expandPath(p) {
-  if (!p) return path.join(os.homedir(), '.ai-marginalia', 'logs');
-  if (p.startsWith('~')) return path.join(os.homedir(), p.slice(1));
-  return p;
+  const raw = p || path.join(os.homedir(), '.ai-marginalia', 'logs');
+  const expanded = raw.startsWith('~') ? path.join(os.homedir(), raw.slice(1)) : raw;
+  // path.resolve で絶対パスに正規化し、.. によるパストラバーサルを無効化する
+  return path.resolve(expanded);
 }
 
 const DIARY_DIR = expandPath(process.env.DIARY_DIR);
@@ -64,12 +65,18 @@ const callDepth = new Map(); // call_id → そのノードのブランチ深さ
 
 const MAX_CHAIN_ENTRIES = 10000;
 
-// 古いエントリを先入れ先出しで削除し、Map のサイズを上限以内に保つ
+// 古いエントリを先入れ先出しで削除し、両 Map のサイズを上限以内に保つ。
+// chainMap と callDepth は別々に管理されるため、それぞれ単独に上限をチェックする。
 function pruneChain() {
   while (chainMap.size > MAX_CHAIN_ENTRIES) {
     const oldestKey = chainMap.keys().next().value;
     chainMap.delete(oldestKey);
     callDepth.delete(oldestKey);
+  }
+  while (callDepth.size > MAX_CHAIN_ENTRIES) {
+    const oldestKey = callDepth.keys().next().value;
+    callDepth.delete(oldestKey);
+    chainMap.delete(oldestKey); // 対応する chainMap 側も伂る限り削除
   }
 }
 
@@ -78,6 +85,7 @@ function pruneChain() {
 // ---------------------------------------------------------------------------
 
 function ensureDir() {
+  // validateDiaryDir で起動時に確認済みだが、起動後にディレクトリが削除された場合の安全網として各操作前に呼ぶ。
   if (!fs.existsSync(DIARY_DIR)) {
     fs.mkdirSync(DIARY_DIR, { recursive: true });
   }
@@ -153,6 +161,10 @@ function writeToLog(sid, callId, parentCallId, line) {
 
 function logNote(content, sessionId, parentCallId) {
   ensureDir();
+  // content の型チェック（文字列以外は明示的に拒否）
+  if (typeof content !== 'string') {
+    throw new TypeError(`content must be a string, got ${typeof content}`);
+  }
   // content の長さ制限（極端に長い入力からディスクを守る）
   const clipped = content.length > MAX_CONTENT_LENGTH
     ? content.slice(0, MAX_CONTENT_LENGTH) + '\u2026[truncated]'
@@ -173,9 +185,9 @@ function ping(sessionId, parentCallId) {
   const sid = sessionId || 'BERSERK';
   const callId = generateCallId();
   const pid = parentCallId || 'null';
-  // depth の計算式は writeToLog 内と同じ。
-  // 行フォーマットに depth を埋める必要があるため事前に計算するが、
-  // writeToLog 内の計算も游ぶため結果は一致する。
+  // TODO: depth の二重計算。行フォーマットに depth を埋めるため事前計算しているが、
+  // writeToLog 内でも同じ式で計算される。現在は結果が常に一致するが、
+  // writeToLog の depth 計算式が変更された場合に不一致するリスクあり。
   const depth = parentCallId ? (callDepth.get(parentCallId) || 0) + 1 : 1;
   const line = `[${getTimestamp()}][s:${sid}][c:${callId}][p:${pid}][PING] depth:${depth}\n`;
   const { filePath, forkDetected } = writeToLog(sid, callId, parentCallId, line);
@@ -393,7 +405,7 @@ function handleRequest(req) {
       result: {
         protocolVersion: '2024-11-05',
         capabilities: { tools: {} },
-        serverInfo: { name: 'ai-marginalia', version: '1.8.0' },
+        serverInfo: { name: 'ai-marginalia', version: '1.9.0' },
       },
     };
   }
@@ -405,7 +417,12 @@ function handleRequest(req) {
   }
 
   if (method === 'tools/call') {
-    const { name, arguments: args } = params;
+    // params 欠如または name が文字列でない場合は JSON-RPC スペックの Invalid params として返す。
+    // リトライ・エラーハンドリングはクライアント側の責務。
+    if (!params || typeof params.name !== 'string') {
+      return { jsonrpc: '2.0', id, error: { code: -32602, message: 'Invalid params' } };
+    }
+    const { name, arguments: args = {} } = params;
 
     if (name === 'start_session') {
       try {
