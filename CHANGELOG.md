@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.8.0] - 2026-03-11
+
+### Security
+- `sanitizePII`: `\r` `\n` を除去するようにした（ログインジェクション対策）
+  - 1行1エントリのフォーマットを前提とするため、改行は空白に置換される
+
+### Fixed
+- `ping` ・ `logNote`: `getTodayFile()` の二重呼び出しを解消
+  - 深夜0時またぎで書き込み先と戻り値のパスが一致しない問題を修正
+- `read_recent_notes`: `days` バリデーションを強化
+  - `NaN` ・ `Infinity` ・ 0以下 ・ 小数 ・ 文字列の各不正入力を適切に処理
+
+### Changed
+- `logNote` ・ `ping` の共通処理を `writeToLog` ヘルパーに集約（コード重複の解消）
+- `content` の長さを最大 2000 文字に制限（超過分は `…[truncated]` でクリップ）
+- `chainMap` ・ `callDepth` の最大エントリ数を 10000 に制限（`pruneChain` 関数を追加）
+- 起動時に `DIARY_DIR` への書き込み可否を検証する `validateDiaryDir` を追加
+  - 存在しないドライブ、パーミッション不足等を起動時に検出して `process.exit(1)` で終了
+
+---
+
 ## [1.7.0] - 2026-03-10
 
 ### Added

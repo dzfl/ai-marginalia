@@ -33,7 +33,8 @@ const PII_PATTERNS = [
 ];
 
 function sanitizePII(text) {
-  let result = text;
+  // 改行を除去（ログフォーマットは1行1エントリを前提とするため）
+  let result = text.replace(/[\r\n]/g, ' ');
   for (const { pattern, replacement } of PII_PATTERNS) {
     result = result.replace(pattern, replacement);
   }
@@ -60,6 +61,17 @@ function generateCallId() {
 
 const chainMap = new Map();
 const callDepth = new Map(); // call_id → そのノードのブランチ深さ
+
+const MAX_CHAIN_ENTRIES = 10000;
+
+// 古いエントリを先入れ先出しで削除し、Map のサイズを上限以内に保つ
+function pruneChain() {
+  while (chainMap.size > MAX_CHAIN_ENTRIES) {
+    const oldestKey = chainMap.keys().next().value;
+    chainMap.delete(oldestKey);
+    callDepth.delete(oldestKey);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // File helpers
@@ -97,12 +109,16 @@ function getTimestamp() {
 // Core operations
 // ---------------------------------------------------------------------------
 
-function logNote(content, sessionId, parentCallId) {
-  ensureDir();
-  const sanitized = sanitizePII(content);
-  const sid = sessionId || 'BERSERK';
-  const callId = generateCallId();
+const MAX_CONTENT_LENGTH = 2000;
 
+/**
+ * チェーン管理・フォーク検出・ファイル書き込みの共通処理。
+ * @param {string} sid     セッションID（または 'BERSERK'）
+ * @param {string} callId  現在のノードID
+ * @param {string|undefined} parentCallId
+ * @param {string} line    書き込むログ行（\n 終端包含）
+ */
+function writeToLog(sid, callId, parentCallId, line) {
   // フォーク検出
   let forkDetected = false;
   if (parentCallId) {
@@ -116,12 +132,14 @@ function logNote(content, sessionId, parentCallId) {
   const depth = parentCallId ? (callDepth.get(parentCallId) || 0) + 1 : 1;
   callDepth.set(callId, depth);
 
-  const pid = parentCallId || 'null';
-  const block = `[${getTimestamp()}][s:${sid}][c:${callId}][p:${pid}] ${sanitized}\n`;
+  pruneChain();
 
-  const fd = fs.openSync(getTodayFile(), 'a');
+  // 呼び出したその瞬間の日付でファイルを決定（getTodayFile は内部で new Date() を呼ぶため、一度だけ呼んで変数に保持）
+  const filePath = getTodayFile();
+
+  const fd = fs.openSync(filePath, 'a');
   try {
-    fs.writeSync(fd, block);
+    fs.writeSync(fd, line);
     if (forkDetected) {
       const marker = `[${getTimestamp()}][s:${sid}][FORK DETECTED at p:${parentCallId}]\n`;
       fs.writeSync(fd, marker);
@@ -130,40 +148,39 @@ function logNote(content, sessionId, parentCallId) {
     fs.closeSync(fd);
   }
 
-  return { filePath: getTodayFile(), sessionId: sid, callId, forkDetected, depth };
+  return { filePath, forkDetected, depth };
+}
+
+function logNote(content, sessionId, parentCallId) {
+  ensureDir();
+  // content の長さ制限（極端に長い入力からディスクを守る）
+  const clipped = content.length > MAX_CONTENT_LENGTH
+    ? content.slice(0, MAX_CONTENT_LENGTH) + '\u2026[truncated]'
+    : content;
+  const sanitized = sanitizePII(clipped);
+  const sid = sessionId || 'BERSERK';
+  const callId = generateCallId();
+  const pid = parentCallId || 'null';
+
+  const line = `[${getTimestamp()}][s:${sid}][c:${callId}][p:${pid}] ${sanitized}\n`;
+  const { filePath, forkDetected, depth } = writeToLog(sid, callId, parentCallId, line);
+
+  return { filePath, sessionId: sid, callId, forkDetected, depth };
 }
 
 function ping(sessionId, parentCallId) {
   ensureDir();
   const sid = sessionId || 'BERSERK';
   const callId = generateCallId();
-
-  let forkDetected = false;
-  if (parentCallId) {
-    const siblings = chainMap.get(parentCallId) || [];
-    if (siblings.length > 0) forkDetected = true;
-    siblings.push(callId);
-    chainMap.set(parentCallId, siblings);
-  }
-
-  const depth = parentCallId ? (callDepth.get(parentCallId) || 0) + 1 : 1;
-  callDepth.set(callId, depth);
-
   const pid = parentCallId || 'null';
-  const block = `[${getTimestamp()}][s:${sid}][c:${callId}][p:${pid}][PING] depth:${depth}\n`;
+  // depth の計算式は writeToLog 内と同じ。
+  // 行フォーマットに depth を埋める必要があるため事前に計算するが、
+  // writeToLog 内の計算も游ぶため結果は一致する。
+  const depth = parentCallId ? (callDepth.get(parentCallId) || 0) + 1 : 1;
+  const line = `[${getTimestamp()}][s:${sid}][c:${callId}][p:${pid}][PING] depth:${depth}\n`;
+  const { filePath, forkDetected } = writeToLog(sid, callId, parentCallId, line);
 
-  const fd = fs.openSync(getTodayFile(), 'a');
-  try {
-    fs.writeSync(fd, block);
-    if (forkDetected) {
-      const marker = `[${getTimestamp()}][s:${sid}][FORK DETECTED at p:${parentCallId}]\n`;
-      fs.writeSync(fd, marker);
-    }
-  } finally {
-    fs.closeSync(fd);
-  }
-
-  return { filePath: getTodayFile(), sessionId: sid, callId, forkDetected, depth };
+  return { filePath, sessionId: sid, callId, forkDetected, depth };
 }
 
 function startSession() {
@@ -376,7 +393,7 @@ function handleRequest(req) {
       result: {
         protocolVersion: '2024-11-05',
         capabilities: { tools: {} },
-        serverInfo: { name: 'ai-marginalia', version: '1.7.0' },
+        serverInfo: { name: 'ai-marginalia', version: '1.8.0' },
       },
     };
   }
@@ -463,7 +480,8 @@ function handleRequest(req) {
 
     if (name === 'read_recent_notes') {
       try {
-        const days = Math.min(args.days || 7, 30);
+        const rawDays = typeof args.days === 'number' && isFinite(args.days) ? args.days : 7;
+        const days = Math.min(Math.max(1, Math.floor(rawDays)), 30);
         const { entries } = readRecentNotes(days);
         const notesText = entries.length === 0
           ? `過去${days}日分のメモは見つかりませんでした。`
@@ -490,6 +508,28 @@ function handleRequest(req) {
   }
   return null;
 }
+
+// ---------------------------------------------------------------------------
+// Startup validation
+// ---------------------------------------------------------------------------
+
+(function validateDiaryDir() {
+  // DIARY_DIR が空の場合（未設定など）は expandPath のデフォルト値が使われる
+  // それ以外の异常入力（存在しないドライブ、パーミッション不足等）を起動時に検出する
+  try {
+    // ディレクトリがなければ作成する
+    if (!fs.existsSync(DIARY_DIR)) {
+      fs.mkdirSync(DIARY_DIR, { recursive: true });
+    }
+    // 書き込み可能か確認（テストファイルの作成・削除）
+    const testFile = path.join(DIARY_DIR, '.write-test');
+    fs.writeFileSync(testFile, '');
+    fs.unlinkSync(testFile);
+  } catch (e) {
+    process.stderr.write(`[ai-marginalia] DIARY_DIR "${DIARY_DIR}" に書き込めません: ${e.message}\n`);
+    process.exit(1);
+  }
+}());
 
 // ---------------------------------------------------------------------------
 // stdio transport
