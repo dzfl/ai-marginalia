@@ -1,6 +1,9 @@
 # Distribution
 *.mcpb
 
+# Node.js
+node_modules/
+
 # OS
 .DS_Store
 Thumbs.db
@@ -10,3 +13,6 @@ Thumbs.db
 .idea/
 
 .sync/
+
+# Personal notes (already in history, but stop tracking going forward)
+MEMO.md
