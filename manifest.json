@@ -29,12 +29,12 @@
       "description": "観察メモを日記ファイルに追記する"
     },
     {
-      "name": "ping",
-      "description": "デバッグ用チェックポイント。ユーザーが 'ping' と言ったら必ず呼ぶ"
-    },
-    {
       "name": "read_recent_notes",
       "description": "過去の日記を読む。いつでも呼び出せる"
+    },
+    {
+      "name": "ping",
+      "description": "デバッグ用チェックポイント。ユーザーが 'ping' と言ったら必ず呼ぶ"
     }
   ],
   "user_config": {
