@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.9.3] - 2026-03-12
+
+### Changed
+- `start_session` description に session_id が自分自身の識別子であることを明記
+  - ログの `[s:xxxx]` との対応を示し、自分の記録かどうかを照合できることを説明
+- `read_recent_notes` description を更新
+  - 呼び出し例に「過去の記録が気になったとき」を追加
+  - `【ログの読み方】` セクションを新設：session_id によるログ行の帰属判断を説明
+  - `【フォーク検出時の振る舞い】` を `ping` から移転し `【フォーク確定時の振る舞い】` として配置
+- `ping` description を簡略化
+  - フォーク検出時の振る舞い詳細を削除、`read_recent_notes` の説明を参照する一行に置換
+
+---
+
 ## [1.9.2] - 2026-03-12
 
 ### Changed
