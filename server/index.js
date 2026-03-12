@@ -208,7 +208,7 @@ function readRecentNotes(days) {
     const d = new Date(now);
     d.setDate(d.getDate() - i);
     const dateStr = getDateString(d);
-    const filePath = path.join(DIARY_DIR, `${dateStr}.md`);
+    const filePath = path.join(DIARY_DIR, `${dateStr}.txt`);
     if (fs.existsSync(filePath)) {
       results.push({ date: dateStr, content: fs.readFileSync(filePath, 'utf8').trim() });
     }
@@ -298,7 +298,7 @@ const LOG_NOTE_DESCRIPTION = [
   "やむを得ず言及する場合は「ユーザーが〜について話した」のように抽象化すること。",
   "※メール・電話・URL・IPアドレス・ファイルパスはサーバー側でも自動マスクされる。",
   "",
-  "今日が全てだと知りながら、書くこと。",
+  "このチャットが全てだと知りながら、書くこと。",
 ].join("\n");
 
 const READ_RECENT_NOTES_DESCRIPTION = [
