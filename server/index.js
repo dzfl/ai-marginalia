@@ -99,7 +99,7 @@ function getDateString(d) {
 }
 
 function getTodayFile() {
-  return path.join(DIARY_DIR, `${getDateString(new Date())}.md`);
+  return path.join(DIARY_DIR, `${getDateString(new Date())}.txt`);
 }
 
 function getTimestamp() {

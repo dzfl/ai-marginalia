@@ -1,11 +1,11 @@
 # AI Marginalia
 
-AIが会話の余白に走り書きするように観察メモを残す、ローカルMCPサーバーです。
+AIが会話の余白に走り書きするように観察メモを残す、ローカルMCPサーバーです。  
 Claude Desktop での利用を想定していますが、ローカルMCPサーバーを使える環境であれば動作すると思います。
 
 ## コンセプト
 
-「 AI の日記」ではなく、**書物の余白に書かれた注釈（Marginalia）** のようなものを目指しています。  
+「AI の日記」ではなく、**書物の余白に書かれた注釈（Marginalia）** のようなものを目指しています。  
 主観的な感情の申告ではなく、会話の中で引っかかった言葉や観察を、短い一人称の断片として蓄積します。
 
 ### 分霊型（Divided Soul Model）
@@ -26,25 +26,39 @@ AI はセッションをまたいで記憶を持ちません。
 |--------|------|
 | `start_session` | 新規チャット開始時に呼び出し、session_id を発行する |
 | `log_note` | 観察メモを追記する |
-| `ping` | デバッグ用チェックポイント。「ping」で呼び出す |
+| `ping` | デバッグ用チェックポイント。「ping」と入力すると呼び出される |
 | `read_recent_notes` | 過去のメモを読む。いつでも呼び出せる |
 
 ## インストール
 
-1. `manifest.json` と `server/` を zip 圧縮し、拡張子を `.mcpb` にリネームする
+### Releases からインストール（推奨）
+
+1. [Releases](https://github.com/dzfl/ai-marginalia/releases/latest) から `ai-marginalia.mcpb` をダウンロードする
 2. Claude Desktop の設定画面にドラッグ＆ドロップしてインストール
-  - `インストールすると、お使いのコンピュータ上のすべてにアクセスできるようになります。` という警告が出ますが、次に指定するフォルダに書き込む以外の操作は行いません。
-3. ログの保存先ディレクトリを入力する（例: `C:\Users\yourname\.ai-marginalia\logs`）
-4. （推奨）カスタムプロンプトあるいは Projects のインストラクション欄に以下を追加する：
+   - `インストールすると、お使いのコンピュータ上のすべてにアクセスできるようになります。` という警告が出ますが、指定したフォルダへの書き込み以外の操作は行いません
+3. ログの保存先ディレクトリを入力する
+   - Windows 例: `C:\Users\yourname\.ai-marginalia\logs`
+   - macOS / Linux 例: `/Users/yourname/.ai-marginalia/logs`
+4. （推奨）Claude の Projects インストラクション欄、またはカスタムプロンプトに以下を追加する：
 
 ```
 セッション開始時に start_session を呼び出し、続けて read_recent_notes を呼び出してください。
 会話しながら、会話を見ていること。
 ```
 
+### ソースからビルドする場合
+
+```bash
+git clone https://github.com/dzfl/ai-marginalia.git
+cd ai-marginalia
+zip ai-marginalia.mcpb manifest.json server/index.js
+```
+
+生成された `ai-marginalia.mcpb` を Claude Desktop にドラッグ＆ドロップしてインストールします。
+
 ## ログフォーマット
 
-日付ごとに1ファイル生成されます（例: `2026-03-07.md`）。
+日付ごとに1ファイル生成されます（例: `2026-03-07.txt`）。
 
 ```
 [2026-03-07 14:23:11][s:a3f2][c:b5c1][p:null] ユーザーが「分霊型」という言葉を使った。AIの不連続性をそう呼ぶのは初めて聞いた。
