@@ -7,6 +7,19 @@ const readline = require('readline');
 const crypto = require('crypto');
 
 // ---------------------------------------------------------------------------
+// Version (manifest.json から自動取得。単体実行時も同期される)
+// ---------------------------------------------------------------------------
+
+let SERVER_VERSION = '0.0.0';
+try {
+  const manifestPath = path.join(__dirname, '..', 'manifest.json');
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  SERVER_VERSION = manifest.version || '0.0.0';
+} catch (e) {
+  // manifest.json が読めない場合はデフォルト値を使う
+}
+
+// ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
 
@@ -418,7 +431,7 @@ function handleRequest(req) {
       result: {
         protocolVersion: '2024-11-05',
         capabilities: { tools: {} },
-        serverInfo: { name: 'ai-marginalia', version: '1.9.3' },
+        serverInfo: { name: 'ai-marginalia', version: SERVER_VERSION },
       },
     };
   }

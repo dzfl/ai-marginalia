@@ -344,9 +344,18 @@ zip -r ai-marginalia.mcpb manifest.json server/
 
 ### 動作環境
 
-- Claude Desktop for Windows / macOS
+- Claude Desktop for Windows: 動作確認済み
+- Claude Desktop for macOS: 未検証（Claude Desktop は存在するが作者が macOS 未所持）
+- Linux: 非対応（Claude Desktop の Linux 版なし）
 - Node.js は Claude Desktop に内蔵されたランタイムを使用（別途インストール不要）
 - 外部 npm パッケージへの依存なし
+
+### バージョン管理
+
+`server/index.js` は起動時に `manifest.json` を読み込み、`version` フィールドからバージョンを取得する。
+MCPプロトコルの `initialize` レスポンスに使われるバージョン情報はこちらから自動で反映されるため、
+**バージョンを更新する際は `manifest.json` の `version` のみ変更すればよい**。
+`manifest.json` が読めない場合（単体テスト等）は `'0.0.0'` がフォールバックとして使われる。
 
 ---
 

@@ -54,7 +54,7 @@ AI はセッションをまたいで記憶を持ちません。
 ```bash
 git clone https://github.com/dzfl/ai-marginalia.git
 cd ai-marginalia
-zip ai-marginalia.mcpb manifest.json server/index.js
+zip -r ai-marginalia.mcpb manifest.json server/
 ```
 
 生成された `ai-marginalia.mcpb` を Claude Desktop にドラッグ＆ドロップしてインストールします。
@@ -94,6 +94,12 @@ zip ai-marginalia.mcpb manifest.json server/index.js
 `C_ID`, `P_ID` は書き込みの度に発行される為、情報鮮度が高く比較的喪失しづらいですが、`S_ID` は喪失可能性は高いです。  
 `S_ID` が失われた場合は **BERSERK(狂化)** 、同一性失墜状態となり、どのチャットのログかどうかは判断不可能となります。  
 狂化状態でも動作に支障はないので特別気にする必要はありませんが、ログを整形して別途利用など考えている場合はご注意ください。  
+
+## 動作確認環境
+
+- **Windows**: 動作確認済み
+- **macOS**: 未検証（Claude Desktop for macOS は存在しますが、作者が macOS を所持していないため動作確認が取れていません）
+- **Linux**: 非対応（Claude Desktop の Linux 版が存在しないため）
 
 ## 依存関係
 

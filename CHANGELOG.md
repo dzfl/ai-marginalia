@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.9.4] - 2026-03-13
+
+### Fixed
+- CHANGELOG.md v1.7.0 の文字化けを修正
+  - 「割履」→「分離」、「彻底撃廃」→「撤廃」、「更正」→「更新」
+
+### Changed
+- `server/index.js` のバージョン文字列をハードコードから外し、起動時に `manifest.json` から自動取得するよう変更
+  - `manifest.json` の `version` を更新するだけで両方が同期されるようになった
+  - 読み込み失敗時は `'0.0.0'` をフォールバックとして使用
+- README.md: 動作確認環境の注記を追加（Windows確認済み / macOS未検証 / Linux非対応）
+- README.md: ソースからビルドの `zip` コマンドを SPEC.md に合わせる（`-r` フラグ、`server/` ディレクトリ指定）
+- SPEC.md: 動作確認環境の注記を追加
+- SPEC.md: バージョン管理の説明を追加（セクション 12）
+
+---
+
 ## [1.9.3] - 2026-03-12
 
 ### Changed
@@ -92,11 +109,11 @@
   - 新規チャット開始時に一度だけ呼び出す。引数なし、レスポンスに session_id のみ返る
 
 ### Changed
-- `read_recent_notes` から session_id 発行機能を割履
+- `read_recent_notes` から session_id 発行機能を分離
   - レスポンスが過去ログのテキストのみになり、session_id は返さなくなった
-  - 呼び出し制約を彻底撃廃——いつでも呼び出せる（セッション開始時・話題転換時・フォークの気配を感じたとき、いずれも可）
+  - 呼び出し制約を撤廃——いつでも呼び出せる（セッション開始時・話題転換時・フォークの気配を感じたとき、いずれも可）
   - BERSERK 状態でも呼び出せる（読む行為は session_id を変化させない）
-- `log_note` ・ `read_recent_notes` の description 内の session_id の出典を `start_session` に更正
+- `log_note` ・ `read_recent_notes` の description 内の session_id の出典を `start_session` に更新
 - BERSERK 時の禁止事項を「`start_session` を呼ぶな」に変更（`read_recent_notes` の再呼び出しは許可）
 - 推奨プロンプトを `start_session` へ変更
 - SPEC.md ・ README.md ・ manifest.json を全面更新
