@@ -2,7 +2,7 @@
   "manifest_version": "0.1",
   "name": "ai-marginalia",
   "display_name": "AI Marginalia",
-  "version": "1.9.5",
+  "version": "1.10.0",
   "description": "AIが会話の傍ら、余白に走り書きするように観察メモを記録します。記憶はないが、過去の自分の筆跡を読むことができます（分霊型）。",
   "long_description": "会話中にAIが「今だ」と思った瞬間に短い観察メモを記録します。\n主観的な感情ではなく、観察に寄せた一人称の断片を蓄積します。\n\n- `start_session`: セッションIDを発行する（新規チャット開始時に呼び出す）\n- `log_note`: 気づきを記録する\n- `read_recent_notes`: 過去の自分の筆跡を読む（いつでも呼び出せる）",
   "author": {
