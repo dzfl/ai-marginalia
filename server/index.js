@@ -415,8 +415,8 @@ const TOOLS = [
       properties: {
         days: {
           type: 'number',
-          description: '何日分を遡るか（デフォルト: 7、最大: 30）',
-          default: 7,
+          description: '何日分を遡るか（デフォルト: 3、最大: 30）',
+          default: 3,
         },
       },
     },
